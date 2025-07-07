@@ -16,3 +16,4 @@ wheels/
 *.log
 spot_tracker.log
 spot_collector.log
+*.db

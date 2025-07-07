@@ -8,9 +8,6 @@ import logging
 import argparse
 from pathlib import Path
 
-# Add the current directory to the path so we can import our modules
-sys.path.insert(0, str(Path(__file__).parent))
-
 from gliderdata.spot_collector import SpotDataCollector, create_config_file
 from gliderdata.spot_database import SpotDatabase
 from gliderdata.spot_tracker import SpotTrackerAPI

@@ -14,8 +14,8 @@ import signal
 import sys
 from pathlib import Path
 
-from spot_tracker import SpotTrackerAPI
-from spot_database import SpotDatabase
+from gliderdata.spot_tracker import SpotTrackerAPI
+from gliderdata.spot_database import SpotDatabase
 
 
 # Configure logging

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
-from spot_tracker import SpotPosition
+from gliderdata.spot_tracker import SpotPosition
 
 
 # Configure logging
