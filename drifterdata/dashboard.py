@@ -14,8 +14,10 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import sqlite3
 from pathlib import Path
+import os
 
 from drifterdata.spot_database import SpotDatabase
+from drifterdata.spot_tracker import SpotTrackerAPI
 
 
 # Configure logging
@@ -25,15 +27,98 @@ logger = logging.getLogger(__name__)
 class DrifterDashboard:
     """Streamlit dashboard for drifter position visualization."""
     
-    def __init__(self, db_path: str = "spot_positions.db"):
+    def __init__(self, db_path: str = "spot_positions.db", data_source: str = "database"):
         """
         Initialize the dashboard.
         
         Args:
             db_path: Path to the SQLite database file
+            data_source: Data source to use ("database" or "api")
         """
         self.db_path = db_path
-        self.db = SpotDatabase(db_path)
+        self.data_source = data_source.lower()
+        self.db = SpotDatabase(db_path) if self.data_source == "database" else None
+        self.api = None
+        
+        if self.data_source not in ["database", "api"]:
+            raise ValueError("data_source must be 'database' or 'api'")
+        
+    def get_api_connection(self) -> Optional[SpotTrackerAPI]:
+        """
+        Get or create SPOT API connection using Streamlit secrets.
+        
+        Returns:
+            SpotTrackerAPI instance or None if credentials not available
+        """
+        if self.api is None and self.data_source == "api":
+            try:
+                # Get feed_id from Streamlit secrets
+                if hasattr(st, 'secrets') and 'spot' in st.secrets:
+                    feed_id = st.secrets.spot.feed_id
+                else:
+                    # Fall back to environment variables
+                    feed_id = os.getenv('SPOT_FEED_ID')
+                
+                if feed_id and feed_id != "your_spot_feed_id_here":
+                    self.api = SpotTrackerAPI(feed_id=feed_id)
+                    # Test the connection
+                    if not self.api.test_connection():
+                        st.error("Failed to connect to SPOT API with provided feed ID")
+                        self.api = None
+                else:
+                    st.error("SPOT feed ID not found. Please configure .streamlit/secrets.toml")
+                    self.api = None
+                    
+            except Exception as e:
+                st.error(f"Error connecting to SPOT API: {e}")
+                self.api = None
+                
+        return self.api
+    
+    def load_api_data(self, days_back: int = 7) -> pd.DataFrame:
+        """
+        Load position data directly from SPOT API.
+        
+        Args:
+            days_back: Number of days back to load data
+            
+        Returns:
+            DataFrame with position data
+        """
+        api = self.get_api_connection()
+        if not api:
+            return pd.DataFrame()
+            
+        try:
+            since_date = datetime.now() - timedelta(days=days_back)
+            positions = api.get_latest_positions(since_date)
+            
+            if not positions:
+                return pd.DataFrame()
+            
+            # Convert positions to DataFrame
+            data = []
+            for pos in positions:
+                data.append({
+                    'asset_id': pos.asset_id,
+                    'timestamp': pos.timestamp,
+                    'latitude': pos.latitude,
+                    'longitude': pos.longitude,
+                    'altitude': pos.altitude,
+                    'message_type': pos.message_type,
+                    'battery_state': pos.battery_state
+                })
+            
+            df = pd.DataFrame(data)
+            if not df.empty:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df = df.sort_values(['asset_id', 'timestamp'])
+            
+            return df
+            
+        except Exception as e:
+            st.error(f"Error loading data from SPOT API: {e}")
+            return pd.DataFrame()
         
     def load_position_data(self, 
                           asset_ids: Optional[List[str]] = None,
@@ -176,12 +261,35 @@ class DrifterDashboard:
         """
         st.sidebar.title("🌊 Drifter Dashboard")
         
-        # Get available asset IDs
-        try:
-            asset_ids = self.db.get_asset_ids()
-        except Exception as e:
-            st.sidebar.error(f"Error loading asset IDs: {e}")
-            asset_ids = []
+        # Show current data source
+        source_icon = "📂" if self.data_source == "database" else "🌐"
+        source_name = "Database" if self.data_source == "database" else "SPOT API (Live)"
+        st.sidebar.markdown(f"### {source_icon} Data Source: {source_name}")
+        
+        # Get available asset IDs based on data source
+        asset_ids = []
+        if self.data_source == "api":
+            # Get assets from API
+            api = self.get_api_connection()
+            if api:
+                try:
+                    api_df = self.load_api_data(days_back=7)
+                    if not api_df.empty:
+                        asset_ids = sorted(api_df['asset_id'].unique().tolist())
+                except Exception:
+                    pass
+            else:
+                st.sidebar.error("API connection failed")
+        else:
+            # Get from database
+            if self.db and Path(self.db_path).exists():
+                try:
+                    asset_ids = self.db.get_asset_ids()
+                except Exception as e:
+                    st.sidebar.error(f"Error loading asset IDs: {e}")
+                    asset_ids = []
+            else:
+                st.sidebar.error(f"Database not found: {self.db_path}")
         
         # Asset selection
         if asset_ids:
@@ -193,7 +301,10 @@ class DrifterDashboard:
             )
         else:
             selected_assets = []
-            st.sidebar.warning("No drifters found in database")
+            if self.data_source == "database":
+                st.sidebar.warning("No drifters found in database")
+            else:
+                st.sidebar.warning("No drifters found via API")
         
         # Time range selection
         days_back = st.sidebar.slider(
@@ -207,19 +318,36 @@ class DrifterDashboard:
         # Refresh button
         refresh = st.sidebar.button("🔄 Refresh Data")
         
-        # Database stats
-        try:
-            stats = self.db.get_database_stats()
-            st.sidebar.markdown("### 📊 Database Stats")
-            st.sidebar.metric("Total Positions", stats['total_positions'])
-            st.sidebar.metric("Active Drifters", stats['unique_assets'])
-            
-            if stats['latest_position']:
-                latest_time = pd.to_datetime(stats['latest_position'])
-                st.sidebar.metric("Last Update", latest_time.strftime('%Y-%m-%d %H:%M'))
+        # Show stats based on data source
+        st.sidebar.markdown("### 📈 Statistics")
+        
+        if self.data_source == "database" and self.db:
+            try:
+                stats = self.db.get_database_stats()
+                st.sidebar.metric("Total Positions", stats['total_positions'])
+                st.sidebar.metric("Active Drifters", stats['unique_assets'])
                 
-        except Exception as e:
-            st.sidebar.error(f"Error loading stats: {e}")
+                if stats['latest_position']:
+                    latest_time = pd.to_datetime(stats['latest_position'])
+                    st.sidebar.metric("Last Update", latest_time.strftime('%Y-%m-%d %H:%M'))
+                    
+            except Exception as e:
+                st.sidebar.error(f"Error loading stats: {e}")
+        
+        elif self.data_source == "api":
+            api = self.get_api_connection()
+            if api:
+                try:
+                    api_df = self.load_api_data(days_back=1)  # Just for stats
+                    if not api_df.empty:
+                        st.sidebar.metric("Live Positions", len(api_df))
+                        st.sidebar.metric("Active Drifters", api_df['asset_id'].nunique())
+                        latest_api = api_df['timestamp'].max()
+                        st.sidebar.metric("Latest Position", latest_api.strftime('%Y-%m-%d %H:%M'))
+                    else:
+                        st.sidebar.info("No recent positions found")
+                except Exception as e:
+                    st.sidebar.error(f"Error loading API stats: {e}")
         
         return {
             'selected_assets': selected_assets,
@@ -275,29 +403,43 @@ class DrifterDashboard:
         st.title("🌊 SPOT Drifter Tracker Dashboard")
         st.markdown("Real-time visualization of drifter positions and movement traces")
         
-        # Check if database exists
-        if not Path(self.db_path).exists():
-            st.error(f"Database file not found: {self.db_path}")
-            st.info("Make sure the data collection system has been run to create position data.")
-            return
-        
         # Create sidebar controls
         controls = self.create_sidebar()
         
-        # Load data based on controls
+        # Load data based on selected data source
+        df = pd.DataFrame()
+        data_source_info = ""
+        
         if controls['selected_assets']:
-            df = self.load_position_data(
-                asset_ids=controls['selected_assets'],
-                days_back=controls['days_back']
-            )
-        else:
-            df = pd.DataFrame()
+            if self.data_source == "database":
+                # Load from database
+                if Path(self.db_path).exists():
+                    df = self.load_position_data(
+                        asset_ids=controls['selected_assets'],
+                        days_back=controls['days_back']
+                    )
+                    data_source_info = "📂 Database"
+                else:
+                    st.error(f"Database file not found: {self.db_path}")
+                    st.info("Make sure the data collection system has been run to create position data.")
+                    
+            elif self.data_source == "api":
+                # Load from API
+                api = self.get_api_connection()
+                if api:
+                    df = self.load_api_data(days_back=controls['days_back'])
+                    # Filter by selected assets
+                    if not df.empty:
+                        df = df[df['asset_id'].isin(controls['selected_assets'])]
+                    data_source_info = "🌐 SPOT API (Live)"
+                else:
+                    st.warning("SPOT API connection failed. Check your credentials in .streamlit/secrets.toml")
         
         # Create two columns for layout
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.subheader("🗺️ Drifter Traces Map")
+            st.subheader(f"🗺️ Drifter Traces Map {data_source_info}")
             
             if not df.empty:
                 # Create and display map
@@ -305,7 +447,9 @@ class DrifterDashboard:
                 st_folium(m, width=700, height=500)
                 
                 # Show map info
-                st.info(f"Displaying {len(df)} position points for {len(controls['selected_assets'])} drifter(s)")
+                total_points = len(df)
+                unique_drifters = len(controls['selected_assets'])
+                st.info(f"Displaying {total_points} position points for {unique_drifters} drifter(s)")
                 
             else:
                 st.warning("No data available for the selected criteria.")
@@ -319,7 +463,10 @@ class DrifterDashboard:
         
         # Footer
         st.markdown("---")
-        st.markdown("*Dashboard updates automatically when new position data is collected*")
+        if self.data_source == "api":
+            st.markdown("*Live data from SPOT API | Refresh page for latest positions*")
+        else:
+            st.markdown("*Database data | Dashboard updates when new data is collected*")
 
 
 def main():
@@ -327,18 +474,33 @@ def main():
     # Setup logging
     logging.basicConfig(level=logging.INFO)
     
-    # Get database path from command line or environment
+    # Parse command line arguments
     import sys
-    import os
+    import argparse
     
-    db_path = "spot_positions.db"
-    if len(sys.argv) > 1:
-        db_path = sys.argv[1]
-    elif 'DB_PATH' in os.environ:
-        db_path = os.environ['DB_PATH']
+    parser = argparse.ArgumentParser(description="SPOT Drifter Dashboard")
+    parser.add_argument(
+        "--source",
+        choices=["database", "api"],
+        default="database",
+        help="Data source: 'database' for local SQLite data, 'api' for live SPOT API data"
+    )
+    parser.add_argument(
+        "--db-path",
+        default="spot_positions.db",
+        help="Path to SQLite database file (used when source=database)"
+    )
+    
+    # Parse args, handling both streamlit run and direct execution
+    if len(sys.argv) > 1 and sys.argv[1] == "--":
+        # Called via streamlit run script.py -- --source api
+        args = parser.parse_args(sys.argv[2:])
+    else:
+        # Called directly
+        args = parser.parse_args()
     
     # Create and run dashboard
-    dashboard = DrifterDashboard(db_path)
+    dashboard = DrifterDashboard(db_path=args.db_path, data_source=args.source)
     dashboard.run()
 
 

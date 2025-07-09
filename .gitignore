@@ -12,6 +12,9 @@ wheels/
 # Exclude environment files
 .env
 
+# Exclude Streamlit secrets
+.streamlit/secrets.toml
+
 # Exclude log files
 *.log
 spot_tracker.log

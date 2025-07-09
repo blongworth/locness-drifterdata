@@ -9,6 +9,8 @@ A Python module for accessing SPOT Satellite GPS Messenger data through their AP
 - **Periodic Collection**: Automatically collects data at configurable intervals
 - **Data Management**: Automatic cleanup of old position data
 - **Command-line Interface**: Easy-to-use CLI for all operations
+- **Web Dashboard**: Interactive map visualization with multiple data sources
+- **Live API Access**: Dashboard can fetch real-time data directly from SPOT API
 - **Logging**: Comprehensive logging for monitoring and debugging
 
 ## Installation
@@ -27,19 +29,18 @@ This will install all required dependencies including:
 uv run python main.py config
 ```
 
-3. Edit the `.env` file with your SPOT credentials:
+3. Edit the `.env` file with your SPOT feed ID:
 ```bash
 cp .env.example .env
-# Edit .env with your actual SPOT_API_KEY and SPOT_FEED_ID
+# Edit .env with your actual SPOT_FEED_ID
 ```
 
-## Getting SPOT API Credentials
+## Getting SPOT Feed ID
 
 1. Go to [SPOT's website](https://www.findmespot.com/)
 2. Log in to your account
-3. Navigate to "My Account" → "API Keys"
-4. Generate a new API key
-5. Find your Feed ID in the sharing options for your tracker
+3. Navigate to your tracker's sharing options
+4. Find your Feed ID in the sharing URL or settings
 
 ## Usage
 
@@ -80,27 +81,68 @@ uv run python main.py dashboard
 The project includes a Streamlit-based web dashboard for visualizing drifter position data:
 
 ### Features:
+- **Dual Data Sources**: Use either local database or live SPOT API data
 - **Interactive Map**: View drifter traces on an interactive map with Folium
 - **Multi-drifter Support**: Display traces for multiple drifters with different colors
 - **Time Range Control**: Filter data by number of days of history
 - **Position Details**: Click markers to see detailed position information
-- **Real-time Stats**: Live database statistics and metrics
+- **Real-time Stats**: Live statistics from selected data source
+- **Clean Interface**: Simplified UI focused on data visualization
 - **Responsive Design**: Works on desktop and mobile devices
 
-### Usage:
-```bash
-# Launch the dashboard (opens at http://localhost:8501 or similar)
-uv run python main.py dashboard
+### Data Sources:
+Choose your data source via command line argument:
+1. **Database** (`--source database`): Use locally stored position data (default)
+2. **SPOT API** (`--source api`): Get real-time data directly from SPOT API
 
-# Dashboard will automatically use the same database as the collector
-# Navigate to the URL shown in the terminal to view the interface
+### Usage:
+
+**Database Mode (Default):**
+```bash
+# Use local database (requires running the collector first)
+uv run python main.py dashboard
+# or explicitly:
+uv run python main.py dashboard --source database
+```
+
+**Live API Mode:**
+```bash
+# Use live SPOT API data
+uv run python main.py dashboard --source api
+```
+
+### API Configuration:
+For live SPOT API data, configure your credentials in `.streamlit/secrets.toml`:
+
+1. **Create secrets file:**
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+
+2. **Edit the secrets file:**
+   ```toml
+   [spot]
+   feed_id = "your_actual_spot_feed_id"
+   ```
+
+3. **Launch API dashboard:**
+   ```bash
+   uv run python main.py dashboard --source api
+   ```
+
+**Alternative:** Set environment variable:
+```bash
+export SPOT_FEED_ID="your_feed_id"
+uv run python main.py dashboard --source api
 ```
 
 ### Dashboard Components:
-- **Sidebar Controls**: Select drifters, adjust time range, view stats
-- **Main Map**: Interactive map showing drifter traces and positions
-- **Data Table**: Summary of recent positions and detailed data view
-- **Markers**: Start (play icon), current (stop icon), and intermediate positions
+- **Data Source Indicator**: Shows current source (Database or SPOT API)
+- **Drifter Selection**: Choose which drifters to display
+- **Time Range Slider**: Adjust historical data range (1-30 days)
+- **Interactive Map**: Traces with start/end markers and position details
+- **Data Statistics**: Real-time metrics from the selected source
+- **Position Table**: Summary and detailed view of position data
 
 ## Programmatic Usage
 
@@ -110,7 +152,7 @@ from spot_database import SpotDatabase
 from spot_collector import SpotDataCollector
 
 # Initialize API client
-api = SpotTrackerAPI(api_key="your_key", feed_id="your_feed_id")
+api = SpotTrackerAPI(feed_id="your_feed_id")
 
 # Get latest positions
 positions = api.get_latest_positions()
@@ -123,7 +165,6 @@ db.insert_positions(positions)
 
 # Start automated collection
 collector = SpotDataCollector(
-    api_key="your_key",
     feed_id="your_feed_id",
     collection_interval=15  # minutes
 )
@@ -150,7 +191,6 @@ The SQLite database contains a `positions` table with the following structure:
 
 Configuration can be provided via environment variables or a `.env` file:
 
-- `SPOT_API_KEY`: Your SPOT API key
 - `SPOT_FEED_ID`: Your SPOT feed ID
 - `DB_PATH`: Path to SQLite database file
 - `COLLECTION_INTERVAL`: Collection interval in minutes
@@ -216,6 +256,7 @@ drifterdata/
 ├── spot_tracker.py      # SPOT API client
 ├── spot_database.py     # SQLite database manager
 ├── spot_collector.py    # Periodic data collector
+├── dashboard.py         # Streamlit web dashboard
 ├── pyproject.toml       # Project configuration
 ├── .env.example         # Example configuration
 └── README.md           # This file

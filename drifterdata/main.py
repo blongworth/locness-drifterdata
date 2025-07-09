@@ -91,13 +91,14 @@ def cmd_dashboard(args):
     # Get the dashboard module path
     dashboard_path = Path(__file__).parent / "dashboard.py"
     
-    # Launch streamlit
+    # Launch streamlit with data source argument
     cmd = [
         sys.executable, "-m", "streamlit", "run", 
-        str(dashboard_path), "--", args.db_path
+        str(dashboard_path), "--", "--source", args.source, "--db-path", args.db_path
     ]
     
-    print("Starting dashboard at http://localhost:8501")
+    source_name = "database" if args.source == "database" else "SPOT API"
+    print(f"Starting dashboard with {source_name} data source at http://localhost:8501")
     print("Press Ctrl+C to stop the dashboard")
     
     try:
@@ -125,7 +126,8 @@ Examples:
   %(prog)s status                   # Show database statistics
   %(prog)s cleanup --days 7         # Clean up positions older than 7 days
   %(prog)s config                   # Create sample config file
-  %(prog)s dashboard                # Launch web dashboard
+  %(prog)s dashboard                # Launch web dashboard (database)
+  %(prog)s dashboard --source api   # Launch web dashboard (live API)
         """,
     )
 
@@ -214,6 +216,12 @@ Examples:
     # Dashboard command
     dashboard_parser = subparsers.add_parser(
         "dashboard", help="Launch the Streamlit dashboard"
+    )
+    dashboard_parser.add_argument(
+        "--source",
+        choices=["database", "api"],
+        default="database",
+        help="Data source: 'database' for local data, 'api' for live SPOT API data (default: database)"
     )
     dashboard_parser.set_defaults(func=cmd_dashboard)
 

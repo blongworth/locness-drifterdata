@@ -32,8 +32,8 @@ class SpotDataCollector:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
         feed_id: Optional[str] = None,
+        api_key: Optional[str] = None,  # Deprecated, kept for backward compatibility
         db_path: str = "spot_positions.db",
         collection_interval: int = 15,  # minutes
         cleanup_days: int = 30,
@@ -42,13 +42,13 @@ class SpotDataCollector:
         Initialize the data collector.
 
         Args:
-            api_key: SPOT API key
             feed_id: SPOT feed ID
+            api_key: Deprecated - SPOT API only requires feed ID
             db_path: Path to SQLite database
             collection_interval: Interval between collections in minutes
             cleanup_days: Days to keep old positions
         """
-        self.api = SpotTrackerAPI(api_key, feed_id)
+        self.api = SpotTrackerAPI(feed_id=feed_id)
         self.db = SpotDatabase(db_path)
         self.collection_interval = collection_interval
         self.cleanup_days = cleanup_days

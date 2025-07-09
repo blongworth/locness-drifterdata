@@ -64,19 +64,17 @@ class SpotTrackerAPI:
     for SPOT satellite GPS trackers.
     """
     
-    def __init__(self, api_key: Optional[str] = None, feed_id: Optional[str] = None):
+    def __init__(self, feed_id: Optional[str] = None, api_key: Optional[str] = None):
         """
         Initialize the SPOT Tracker API client.
         
         Args:
-            api_key: SPOT API key (can also be set via SPOT_API_KEY environment variable)
             feed_id: SPOT feed ID (can also be set via SPOT_FEED_ID environment variable)
+            api_key: Deprecated - SPOT API only requires feed ID
         """
-        self.api_key = api_key or os.getenv('SPOT_API_KEY')
         self.feed_id = feed_id or os.getenv('SPOT_FEED_ID')
-        
-        if not self.api_key:
-            raise ValueError("SPOT API key is required. Set SPOT_API_KEY environment variable or pass api_key parameter.")
+        # Keep api_key for backward compatibility but it's not used
+        self.api_key = api_key or os.getenv('SPOT_API_KEY')
         
         if not self.feed_id:
             raise ValueError("SPOT feed ID is required. Set SPOT_FEED_ID environment variable or pass feed_id parameter.")

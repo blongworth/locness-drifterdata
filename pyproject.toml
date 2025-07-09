@@ -19,5 +19,15 @@ dependencies = [
     "pandas>=2.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "watchdog>=3.0.0",
+]
+
 [project.scripts]
 drifterdata = "drifterdata.main:main"
+
+[dependency-groups]
+dev = [
+    "watchdog>=6.0.0",
+]
