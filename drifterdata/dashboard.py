@@ -27,21 +27,19 @@ logger = logging.getLogger(__name__)
 class DrifterDashboard:
     """Streamlit dashboard for drifter position visualization."""
     
-    def __init__(self, db_path: str = "spot_positions.db", data_source: str = "database"):
+    def __init__(self, db_path: Optional[str] = None):
         """
         Initialize the dashboard.
         
         Args:
-            db_path: Path to the SQLite database file
-            data_source: Data source to use ("database" or "api")
+            db_path: Path to the SQLite database file. If provided, uses database mode.
+                    If None, uses API mode.
         """
         self.db_path = db_path
-        self.data_source = data_source.lower()
+        # Determine data source based on whether db_path is provided
+        self.data_source = "database" if db_path else "api"
         self.db = SpotDatabase(db_path) if self.data_source == "database" else None
         self.api = None
-        
-        if self.data_source not in ["database", "api"]:
-            raise ValueError("data_source must be 'database' or 'api'")
         
     def get_api_connection(self) -> Optional[SpotTrackerAPI]:
         """
@@ -481,27 +479,21 @@ def main():
     
     parser = argparse.ArgumentParser(description="SPOT Drifter Dashboard")
     parser.add_argument(
-        "--source",
-        choices=["database", "api"],
-        default="database",
-        help="Data source: 'database' for local SQLite data, 'api' for live SPOT API data"
-    )
-    parser.add_argument(
         "--db-path",
-        default="spot_positions.db",
-        help="Path to SQLite database file (used when source=database)"
+        default=None,
+        help="Path to SQLite database file. If provided, uses database mode. If not provided, uses API mode."
     )
     
     # Parse args, handling both streamlit run and direct execution
     if len(sys.argv) > 1 and sys.argv[1] == "--":
-        # Called via streamlit run script.py -- --source api
+        # Called via streamlit run script.py -- --db-path file.db
         args = parser.parse_args(sys.argv[2:])
     else:
         # Called directly
         args = parser.parse_args()
     
     # Create and run dashboard
-    dashboard = DrifterDashboard(db_path=args.db_path, data_source=args.source)
+    dashboard = DrifterDashboard(db_path=args.db_path)
     dashboard.run()
 
 
