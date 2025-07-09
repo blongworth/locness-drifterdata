@@ -75,7 +75,8 @@ class DrifterDashboard:
                 
         return self.api
     
-    def load_api_data(self, days_back: int = 7) -> pd.DataFrame:
+    @st.cache_data(ttl=180, show_spinner=False)
+    def load_api_data(_self, days_back: int = 7) -> pd.DataFrame:
         """
         Load position data directly from SPOT API.
         
@@ -85,7 +86,7 @@ class DrifterDashboard:
         Returns:
             DataFrame with position data
         """
-        api = self.get_api_connection()
+        api = _self.get_api_connection()
         if not api:
             return pd.DataFrame()
             
