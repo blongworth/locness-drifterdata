@@ -1,1 +1,0 @@
-# gliderdata package initialization

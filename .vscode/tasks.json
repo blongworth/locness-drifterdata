@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Launch Drifter Dashboard",
+			"type": "shell",
+			"command": "uv run python -m drifterdata.main dashboard",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

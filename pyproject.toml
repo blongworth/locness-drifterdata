@@ -1,5 +1,9 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "gliderdata"
+name = "drifterdata"
 version = "0.1.0"
 description = "SPOT tracker data collection and storage"
 readme = "README.md"
@@ -9,4 +13,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "schedule>=1.2.0",
     "pydantic>=2.0.0",
+    "streamlit>=1.28.0",
+    "folium>=0.14.0",
+    "streamlit-folium>=0.15.0",
+    "pandas>=2.0.0",
 ]
+
+[project.scripts]
+drifterdata = "drifterdata.main:main"

@@ -18,6 +18,10 @@ A Python module for accessing SPOT Satellite GPS Messenger data through their AP
 uv sync
 ```
 
+This will install all required dependencies including:
+- Core data collection: `requests`, `python-dotenv`, `schedule`, `pydantic`
+- Web dashboard: `streamlit`, `folium`, `streamlit-folium`, `pandas`
+
 2. Create your configuration file:
 ```bash
 uv run python main.py config
@@ -66,7 +70,39 @@ Clean up old data:
 uv run python main.py cleanup --days 7
 ```
 
-### Programmatic Usage
+Launch the web dashboard:
+```bash
+uv run python main.py dashboard
+```
+
+## Web Dashboard
+
+The project includes a Streamlit-based web dashboard for visualizing drifter position data:
+
+### Features:
+- **Interactive Map**: View drifter traces on an interactive map with Folium
+- **Multi-drifter Support**: Display traces for multiple drifters with different colors
+- **Time Range Control**: Filter data by number of days of history
+- **Position Details**: Click markers to see detailed position information
+- **Real-time Stats**: Live database statistics and metrics
+- **Responsive Design**: Works on desktop and mobile devices
+
+### Usage:
+```bash
+# Launch the dashboard (opens at http://localhost:8501 or similar)
+uv run python main.py dashboard
+
+# Dashboard will automatically use the same database as the collector
+# Navigate to the URL shown in the terminal to view the interface
+```
+
+### Dashboard Components:
+- **Sidebar Controls**: Select drifters, adjust time range, view stats
+- **Main Map**: Interactive map showing drifter traces and positions
+- **Data Table**: Summary of recent positions and detailed data view
+- **Markers**: Start (play icon), current (stop icon), and intermediate positions
+
+## Programmatic Usage
 
 ```python
 from spot_tracker import SpotTrackerAPI
@@ -175,7 +211,7 @@ The system includes comprehensive error handling:
 ### Project Structure
 
 ```
-gliderdata/
+drifterdata/
 ├── main.py              # CLI interface
 ├── spot_tracker.py      # SPOT API client
 ├── spot_database.py     # SQLite database manager
