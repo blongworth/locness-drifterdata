@@ -8,10 +8,9 @@ from SPOT trackers and store it in the database.
 import time
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Callable
+from typing import Optional
 import schedule
 import signal
-import sys
 from pathlib import Path
 
 from drifterdata.spot_tracker import SpotTrackerAPI
@@ -81,7 +80,8 @@ class SpotDataCollector:
             start_date = self.last_collection or datetime.now() - timedelta(days=1)
 
             # Fetch positions from API
-            positions = self.api.get_latest_positions(start_date)
+            end_date = datetime.now()
+            positions = self.api.get_messages_by_date_range(start_date, end_date)
 
             if positions:
                 # Store in database

@@ -90,7 +90,8 @@ class DrifterDashboard:
             
         try:
             since_date = datetime.now() - timedelta(days=days_back)
-            positions = api.get_latest_positions(since_date)
+            end_date = datetime.now()
+            positions = api.get_messages_by_date_range(since_date, end_date)
             
             if not positions:
                 return pd.DataFrame()

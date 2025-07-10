@@ -6,11 +6,9 @@ API to retrieve position data for tracked assets.
 """
 
 import os
-import time
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from dataclasses import dataclass
 
 import requests
 from pydantic import BaseModel, Field, validator
@@ -37,9 +35,13 @@ class SpotPosition(BaseModel):
         if isinstance(v, str):
             try:
                 # Try ISO format first
-                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(v.replace('Z', '+00:00'))
+                # If no timezone info, assume UTC
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
             except ValueError:
-                # Try Unix timestamp
+                # Try Unix timestamp string
                 try:
                     return datetime.fromtimestamp(float(v), tz=timezone.utc)
                 except ValueError:
@@ -86,32 +88,30 @@ class SpotTrackerAPI:
             'Accept': 'application/json'
         })
     
-    def get_latest_positions(self, start_date: Optional[datetime] = None) -> List[SpotPosition]:
+    def get_latest_position(self, feed_password: Optional[str] = None) -> Optional[SpotPosition]:
         """
-        Retrieve latest position data from SPOT API.
+        Retrieve the latest position for each device on the feed.
         
         Args:
-            start_date: Optional start date to filter positions (defaults to last 24 hours)
+            feed_password: Optional password for protected feeds
             
         Returns:
-            List of SpotPosition objects
+            Latest SpotPosition object or None if no data available
         """
-        url = f"{self.base_url}/{self.feed_id}/message.json"
+        url = f"{self.base_url}/{self.feed_id}/latest.json"
         
         params = {}
-        if start_date:
-            # SPOT API expects start date in Unix timestamp format
-            params['startDate'] = int(start_date.timestamp())
+        if feed_password:
+            params['feedPassword'] = feed_password
         
         try:
-            logger.info(f"Fetching positions from SPOT API for feed {self.feed_id}")
+            logger.info(f"Fetching latest position from SPOT API for feed {self.feed_id}")
             response = self.session.get(url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
-            positions = []
             
-            # Parse the response structure
+            # Parse the response structure for latest endpoint
             if 'response' in data and 'feedMessageResponse' in data['response']:
                 feed_response = data['response']['feedMessageResponse']
                 
@@ -122,28 +122,169 @@ class SpotTrackerAPI:
                     if isinstance(messages, dict):
                         messages = [messages]
                     
-                    for msg in messages:
-                        try:
-                            position = self._parse_message(msg)
-                            if position:
-                                positions.append(position)
-                        except Exception as e:
-                            logger.warning(f"Failed to parse message: {e}")
-                            continue
+                    # Return the first (latest) message
+                    if messages:
+                        position = self._parse_message(messages[0])
+                        if position:
+                            logger.info("Retrieved latest position from SPOT API")
+                            return position
                 
-                logger.info(f"Retrieved {len(positions)} positions from SPOT API")
-                return positions
-            
-            else:
-                logger.warning("Unexpected response structure from SPOT API")
-                return []
+            logger.info("No latest position data found")
+            return None
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching data from SPOT API: {e}")
+            logger.error(f"Error fetching latest position from SPOT API: {e}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error processing SPOT API response: {e}")
             raise
+    
+    def get_messages(self, start: Optional[int] = None, count: Optional[int] = None, 
+                    feed_password: Optional[str] = None) -> List[SpotPosition]:
+        """
+        Retrieve messages from SPOT API with pagination support.
+        
+        Args:
+            start: Starting position for pagination (1-based, 50 messages per page)
+            count: Number of messages to retrieve (for backward compatibility)
+            feed_password: Optional password for protected feeds
+            
+        Returns:
+            List of SpotPosition objects
+        """
+        url = f"{self.base_url}/{self.feed_id}/message.json"
+        
+        params = {}
+        if start is not None:
+            params['start'] = start
+        if feed_password:
+            params['feedPassword'] = feed_password
+        
+        try:
+            logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} (start={start})")
+            response = self.session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            positions = self._parse_response_data(data)
+            
+            # If count is specified and we got more messages, limit the results
+            if count is not None and len(positions) > count:
+                positions = positions[:count]
+            
+            logger.info(f"Retrieved {len(positions)} messages from SPOT API")
+            return positions
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching messages from SPOT API: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error processing SPOT API response: {e}")
+            raise
+    
+    def get_messages_by_date_range(self, start_date: datetime, end_date: datetime,
+                                  feed_password: Optional[str] = None) -> List[SpotPosition]:
+        """
+        Retrieve messages from SPOT API within a specific date range.
+        Note: SPOT API has a 7-day maximum restriction for date ranges.
+        
+        Args:
+            start_date: Start date for the range
+            end_date: End date for the range
+            feed_password: Optional password for protected feeds
+            
+        Returns:
+            List of SpotPosition objects
+        """
+        url = f"{self.base_url}/{self.feed_id}/message.json"
+        
+        # Format dates as required by SPOT API: YYYY-MM-DDTHH:MM:SS-0000
+        start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S-0000')
+        end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S-0000')
+        
+        params = {
+            'startDate': start_str,
+            'endDate': end_str
+        }
+        if feed_password:
+            params['feedPassword'] = feed_password
+        
+        try:
+            logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} "
+                       f"from {start_str} to {end_str}")
+            response = self.session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            positions = self._parse_response_data(data)
+            
+            logger.info(f"Retrieved {len(positions)} messages from SPOT API for date range")
+            return positions
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching messages by date range from SPOT API: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error processing SPOT API response: {e}")
+            raise
+    
+    def get_latest_positions(self, start_date: Optional[datetime] = None) -> List[SpotPosition]:
+        """
+        Retrieve latest position data from SPOT API.
+        
+        DEPRECATED: Use get_latest_position(), get_messages(), or get_messages_by_date_range() instead.
+        
+        Args:
+            start_date: Optional start date to filter positions (defaults to last 24 hours)
+            
+        Returns:
+            List of SpotPosition objects
+        """
+        logger.warning("get_latest_positions() is deprecated. Use get_messages() or get_messages_by_date_range() instead.")
+        
+        if start_date:
+            # Use date range method for backward compatibility
+            end_date = datetime.now(timezone.utc)
+            return self.get_messages_by_date_range(start_date, end_date)
+        else:
+            # Return recent messages
+            return self.get_messages()
+    
+    def _parse_response_data(self, data: Dict[str, Any]) -> List[SpotPosition]:
+        """
+        Parse response data from SPOT API.
+        
+        Args:
+            data: Raw response data from SPOT API
+            
+        Returns:
+            List of SpotPosition objects
+        """
+        positions = []
+        
+        # Parse the response structure
+        if 'response' in data and 'feedMessageResponse' in data['response']:
+            feed_response = data['response']['feedMessageResponse']
+            
+            if 'count' in feed_response and feed_response['count'] > 0:
+                messages = feed_response.get('messages', {}).get('message', [])
+                
+                # Handle single message vs list of messages
+                if isinstance(messages, dict):
+                    messages = [messages]
+                
+                for msg in messages:
+                    try:
+                        position = self._parse_message(msg)
+                        if position:
+                            positions.append(position)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse message: {e}")
+                        continue
+        else:
+            logger.warning("Unexpected response structure from SPOT API")
+        
+        return positions
     
     def _parse_message(self, message: Dict[str, Any]) -> Optional[SpotPosition]:
         """
@@ -202,8 +343,15 @@ class SpotTrackerAPI:
             True if connection is successful, False otherwise
         """
         try:
-            positions = self.get_latest_positions()
-            logger.info(f"Connection test successful. Found {len(positions)} recent positions.")
+            # Try to get the latest position first
+            latest_position = self.get_latest_position()
+            if latest_position:
+                logger.info("Connection test successful. Found latest position.")
+                return True
+            
+            # If no latest position, try to get recent messages
+            positions = self.get_messages()
+            logger.info(f"Connection test successful. Found {len(positions)} recent messages.")
             return True
         except Exception as e:
             logger.error(f"Connection test failed: {e}")

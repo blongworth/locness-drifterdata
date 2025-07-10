@@ -29,5 +29,108 @@ drifterdata = "drifterdata.main:main"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.4.1",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.9",
     "watchdog>=6.0.0",
 ]
+
+[tool.pytest.ini_options]
+# Pytest configuration for the drifterdata project
+
+# Test discovery
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Markers
+markers = [
+    "integration: marks tests as integration tests (run with real API)",
+    "unit: marks tests as unit tests (run with mocks)",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+# Output options
+addopts = [
+    "-v",                           # Verbose output
+    "--tb=short",                   # Short traceback format
+    "--strict-markers",             # Strict marker validation
+    "--strict-config",              # Strict configuration validation
+    "--color=yes",                  # Colored output
+    "--durations=10",               # Show 10 slowest tests
+]
+
+# Logging
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+# Warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# Minimum version
+minversion = "6.0"
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.11
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E4", "E7", "E9", "F", "I", "N", "UP"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

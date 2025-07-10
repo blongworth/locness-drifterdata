@@ -154,14 +154,29 @@ from spot_collector import SpotDataCollector
 # Initialize API client
 api = SpotTrackerAPI(feed_id="your_feed_id")
 
-# Get latest positions
-positions = api.get_latest_positions()
+# Get the latest position for each device
+latest_position = api.get_latest_position()
+
+# Get recent messages (last 50 by default)
+recent_messages = api.get_messages()
+
+# Get messages with pagination (starting from position 51)
+more_messages = api.get_messages(start=51)
+
+# Get messages within a date range (max 7 days)
+from datetime import datetime, timedelta
+start_date = datetime.now() - timedelta(days=2)
+end_date = datetime.now()
+date_range_messages = api.get_messages_by_date_range(start_date, end_date)
+
+# For password-protected feeds
+protected_messages = api.get_messages(feed_password="your_password")
 
 # Initialize database
 db = SpotDatabase("positions.db")
 
 # Store positions
-db.insert_positions(positions)
+db.insert_positions(recent_messages)
 
 # Start automated collection
 collector = SpotDataCollector(
@@ -204,8 +219,17 @@ Configuration can be provided via environment variables or a `.env` file:
 Main class for interacting with the SPOT API.
 
 #### Methods:
-- `get_latest_positions(start_date=None)`: Fetch latest position data
+- `get_latest_position(feed_password=None)`: Get the latest position for each device
+- `get_messages(start=None, count=None, feed_password=None)`: Get messages with pagination
+- `get_messages_by_date_range(start_date, end_date, feed_password=None)`: Get messages within date range (max 7 days)
+- `get_latest_positions(start_date=None)`: **DEPRECATED** - Use the new methods above
 - `test_connection()`: Test API connectivity
+
+#### Parameters:
+- `start`: Starting position for pagination (1-based, 50 messages per page)
+- `count`: Number of messages to retrieve (for limiting results)
+- `feed_password`: Optional password for protected feeds
+- `start_date`/`end_date`: Date range for filtering (datetime objects)
 
 ### SpotDatabase
 
@@ -254,6 +278,83 @@ The system includes comprehensive error handling:
 drifterdata/
 ├── main.py              # CLI interface
 ├── spot_tracker.py      # SPOT API client
+├── spot_database.py     # Database management
+├── spot_collector.py    # Data collection scheduler
+└── dashboard.py         # Streamlit dashboard
+tests/
+├── test_spot_tracker.py # API client tests
+├── test_spot_position.py # Data model tests
+├── test_integration.py  # Integration tests
+└── conftest.py         # Test configuration
+```
+
+### Testing
+
+The project uses pytest for testing with comprehensive test coverage:
+
+#### Unit Tests
+```bash
+# Run unit tests only (default)
+make test
+# or
+uv run python -m pytest -m "not integration" -v
+
+# Run with coverage
+make test-coverage
+# or
+uv run python -m pytest -m "not integration" --cov=drifterdata --cov-report=html -v
+```
+
+#### Integration Tests
+Integration tests run against the real SPOT API and require valid credentials:
+
+```bash
+# Set environment variables
+export SPOT_FEED_ID=your_real_feed_id
+export SPOT_FEED_PASSWORD=your_password  # if required
+
+# Run integration tests
+make test-integration
+# or
+uv run python -m pytest -m "integration" -v
+```
+
+#### All Tests
+```bash
+# Run all tests (unit + integration)
+make test-all
+# or
+uv run python -m pytest -v
+```
+
+#### Test Features
+- **Comprehensive mocking**: All external API calls are mocked in unit tests
+- **Error handling**: Tests cover various error conditions and edge cases
+- **Data validation**: Tests verify timestamp parsing, coordinate validation, etc.
+- **Integration testing**: Optional tests against real SPOT API
+- **Coverage reporting**: HTML coverage reports generated in `htmlcov/`
+
+### Development Setup
+
+1. **Install dependencies**:
+   ```bash
+   uv sync --group dev
+   ```
+
+2. **Run tests**:
+   ```bash
+   make test
+   ```
+
+3. **Run with coverage**:
+   ```bash
+   make test-coverage
+   ```
+
+4. **Clean up**:
+   ```bash
+   make clean
+   ```
 ├── spot_database.py     # SQLite database manager
 ├── spot_collector.py    # Periodic data collector
 ├── dashboard.py         # Streamlit web dashboard
