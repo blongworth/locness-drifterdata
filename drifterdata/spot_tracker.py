@@ -68,17 +68,14 @@ class SpotTrackerAPI:
     for SPOT satellite GPS trackers.
     """
     
-    def __init__(self, feed_id: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, feed_id: str = None):
         """
         Initialize the SPOT Tracker API client.
         
         Args:
             feed_id: SPOT feed ID (can also be set via SPOT_FEED_ID environment variable)
-            api_key: Deprecated - SPOT API only requires feed ID
         """
         self.feed_id = feed_id or os.getenv('SPOT_FEED_ID')
-        # Keep api_key for backward compatibility but it's not used
-        self.api_key = api_key or os.getenv('SPOT_API_KEY')
         
         if not self.feed_id:
             raise ValueError("SPOT feed ID is required. Set SPOT_FEED_ID environment variable or pass feed_id parameter.")
@@ -90,25 +87,18 @@ class SpotTrackerAPI:
             'Accept': 'application/json'
         })
     
-    def get_latest_position(self, feed_password: Optional[str] = None) -> Optional[SpotPosition]:
+    def get_latest_position(self) -> SpotPosition:
         """
         Retrieve the latest position for each device on the feed.
         
-        Args:
-            feed_password: Optional password for protected feeds
-            
         Returns:
             Latest SpotPosition object or None if no data available
         """
         url = f"{self.base_url}/{self.feed_id}/latest.json"
         
-        params = {}
-        if feed_password:
-            params['feedPassword'] = feed_password
-        
         try:
             logger.info(f"Fetching latest position from SPOT API for feed {self.feed_id}")
-            response = self.session.get(url, params=params, timeout=30)
+            response = self.session.get(url, timeout=30)
             response.raise_for_status()
             
             data = response.json()
@@ -141,15 +131,13 @@ class SpotTrackerAPI:
             logger.error(f"Unexpected error processing SPOT API response: {e}")
             raise
     
-    def get_messages(self, start: Optional[int] = None, count: Optional[int] = None, 
-                    feed_password: Optional[str] = None) -> List[SpotPosition]:
+    def get_messages(self, start: int = None, count: int = None, ) -> list[SpotPosition]:
         """
         Retrieve messages from SPOT API with pagination support.
         
         Args:
             start: Starting position for pagination (1-based, 50 messages per page)
             count: Number of messages to retrieve (for backward compatibility)
-            feed_password: Optional password for protected feeds
             
         Returns:
             List of SpotPosition objects
@@ -159,8 +147,6 @@ class SpotTrackerAPI:
         params = {}
         if start is not None:
             params['start'] = start
-        if feed_password:
-            params['feedPassword'] = feed_password
         
         try:
             logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} (start={start})")
@@ -184,75 +170,7 @@ class SpotTrackerAPI:
             logger.error(f"Unexpected error processing SPOT API response: {e}")
             raise
     
-    def get_messages_by_date_range(self, start_date: datetime, end_date: datetime,
-                                  feed_password: Optional[str] = None) -> List[SpotPosition]:
-        """
-        Retrieve messages from SPOT API within a specific date range.
-        Note: SPOT API has a 7-day maximum restriction for date ranges.
-        
-        Args:
-            start_date: Start date for the range
-            end_date: End date for the range
-            feed_password: Optional password for protected feeds
-            
-        Returns:
-            List of SpotPosition objects
-        """
-        url = f"{self.base_url}/{self.feed_id}/message.json"
-        
-        # Format dates as required by SPOT API: YYYY-MM-DDTHH:MM:SS-0000
-        start_str = start_date.strftime('%Y-%m-%dT%H:%M:%S-0000')
-        end_str = end_date.strftime('%Y-%m-%dT%H:%M:%S-0000')
-        
-        params = {
-            'startDate': start_str,
-            'endDate': end_str
-        }
-        if feed_password:
-            params['feedPassword'] = feed_password
-        
-        try:
-            logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} "
-                       f"from {start_str} to {end_str}")
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            positions = self._parse_response_data(data)
-            
-            logger.info(f"Retrieved {len(positions)} messages from SPOT API for date range")
-            return positions
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching messages by date range from SPOT API: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error processing SPOT API response: {e}")
-            raise
-    
-    def get_latest_positions(self, start_date: Optional[datetime] = None) -> List[SpotPosition]:
-        """
-        Retrieve latest position data from SPOT API.
-        
-        DEPRECATED: Use get_latest_position(), get_messages(), or get_messages_by_date_range() instead.
-        
-        Args:
-            start_date: Optional start date to filter positions (defaults to last 24 hours)
-            
-        Returns:
-            List of SpotPosition objects
-        """
-        logger.warning("get_latest_positions() is deprecated. Use get_messages() or get_messages_by_date_range() instead.")
-        
-        if start_date:
-            # Use date range method for backward compatibility
-            end_date = datetime.now(timezone.utc)
-            return self.get_messages_by_date_range(start_date, end_date)
-        else:
-            # Return recent messages
-            return self.get_messages()
-    
-    def _parse_response_data(self, data: Dict[str, Any]) -> List[SpotPosition]:
+    def _parse_response_data(self, data: dict[str, Any]) -> list[SpotPosition]:
         """
         Parse response data from SPOT API.
         
@@ -288,7 +206,7 @@ class SpotTrackerAPI:
         
         return positions
     
-    def _parse_message(self, message: Dict[str, Any]) -> Optional[SpotPosition]:
+    def _parse_message(self, message: dict[str, Any]) -> SpotPosition:
         """
         Parse a single SPOT message into a SpotPosition object.
         
