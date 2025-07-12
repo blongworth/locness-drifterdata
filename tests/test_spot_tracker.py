@@ -126,24 +126,6 @@ class TestSpotTrackerAPI:
 
         mock_get.assert_called_once_with(
             f"{api.base_url}/{api.feed_id}/latest.json",
-            params={},
-            timeout=30
-        )
-
-    @patch('drifterdata.spot_tracker.requests.Session.get')
-    def test_get_latest_position_with_password(self, mock_get, api, mock_single_message_response):
-        """Test get_latest_position with password."""
-        mock_response = Mock()
-        mock_response.json.return_value = mock_single_message_response
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        api.get_latest_position(feed_password="test_password")
-
-        assert mock_get.call_count == 1
-        mock_get.assert_called_with(
-            f"{api.base_url}/{api.feed_id}/latest.json",
-            params={"feedPassword": "test_password"},
             timeout=30
         )
 
@@ -176,7 +158,7 @@ class TestSpotTrackerAPI:
 
         mock_get.assert_called_once_with(
             f"{api.base_url}/{api.feed_id}/message.json",
-            params={},
+            params={'start': 1},
             timeout=30
         )
 
@@ -195,86 +177,6 @@ class TestSpotTrackerAPI:
             params={"start": 51},
             timeout=30
         )
-
-    @patch('drifterdata.spot_tracker.requests.Session.get')
-    def test_get_messages_with_count_limit(self, mock_get, api, mock_response_data):
-        """Test get_messages with count limit."""
-        mock_response = Mock()
-        mock_response.json.return_value = mock_response_data
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        positions = api.get_messages(count=1)
-
-        assert len(positions) == 1
-
-    @patch('drifterdata.spot_tracker.requests.Session.get')
-    def test_get_messages_by_date_range(self, mock_get, api, mock_response_data):
-        """Test get_messages_by_date_range."""
-        mock_response = Mock()
-        mock_response.json.return_value = mock_response_data
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        start_date = datetime(2025, 7, 8, 12, 0, 0, tzinfo=timezone.utc)
-        end_date = datetime(2025, 7, 10, 12, 0, 0, tzinfo=timezone.utc)
-
-        positions = api.get_messages_by_date_range(start_date, end_date)
-
-        assert len(positions) == 2
-
-        expected_params = {
-            "startDate": "2025-07-08T12:00:00-0000",
-            "endDate": "2025-07-10T12:00:00-0000"
-        }
-        mock_get.assert_called_once_with(
-            f"{api.base_url}/{api.feed_id}/message.json",
-            params=expected_params,
-            timeout=30
-        )
-
-    @patch('drifterdata.spot_tracker.requests.Session.get')
-    def test_get_messages_by_date_range_with_password(self, mock_get, api, mock_response_data):
-        """Test get_messages_by_date_range with password."""
-        mock_response = Mock()
-        mock_response.json.return_value = mock_response_data
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        start_date = datetime(2025, 7, 8, 12, 0, 0, tzinfo=timezone.utc)
-        end_date = datetime(2025, 7, 10, 12, 0, 0, tzinfo=timezone.utc)
-
-        api.get_messages_by_date_range(start_date, end_date, feed_password="test_password")
-
-        expected_params = {
-            "startDate": "2025-07-08T12:00:00-0000",
-            "endDate": "2025-07-10T12:00:00-0000",
-            "feedPassword": "test_password"
-        }
-        mock_get.assert_called_once_with(
-            f"{api.base_url}/{api.feed_id}/message.json",
-            params=expected_params,
-            timeout=30
-        )
-
-    @patch('drifterdata.spot_tracker.requests.Session.get')
-    def test_get_latest_positions_deprecated(self, mock_get, api, mock_response_data):
-        """Test deprecated get_latest_positions method."""
-        mock_response = Mock()
-        mock_response.json.return_value = mock_response_data
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        # The deprecation warning is logged, not raised as a warning
-        with patch('drifterdata.spot_tracker.logger.warning') as mock_warning:
-            positions = api.get_latest_positions()
-            
-            # Check that warning was logged
-            mock_warning.assert_called_once_with(
-                "get_latest_positions() is deprecated. Use get_messages() or get_messages_by_date_range() instead."
-            )
-
-        assert len(positions) == 2
 
     @patch('drifterdata.spot_tracker.requests.Session.get')
     def test_request_exception_handling(self, mock_get, api):

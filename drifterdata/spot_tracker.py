@@ -130,45 +130,57 @@ class SpotTrackerAPI:
         except Exception as e:
             logger.error(f"Unexpected error processing SPOT API response: {e}")
             raise
-    
-    def get_messages(self, start: int = None, count: int = None, ) -> list[SpotPosition]:
+
+    def get_messages(self, start: int = None) -> list[SpotPosition]:
         """
         Retrieve messages from SPOT API with pagination support.
-        
+
         Args:
             start: Starting position for pagination (1-based, 50 messages per page)
-            count: Number of messages to retrieve (for backward compatibility)
-            
+
         Returns:
             List of SpotPosition objects
         """
         url = f"{self.base_url}/{self.feed_id}/message.json"
-        
-        params = {}
-        if start is not None:
-            params['start'] = start
-        
-        try:
-            logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} (start={start})")
+        page_size = 50
+        positions = []
+        page_start = start if start is not None else 1
+
+        def fetch_page(page_start):
+            params = {} if page_start is None else {'start': page_start}
+            logger.info(f"Fetching messages from SPOT API for feed {self.feed_id} (start={page_start})")
             response = self.session.get(url, params=params, timeout=30)
             response.raise_for_status()
-            
             data = response.json()
-            positions = self._parse_response_data(data)
-            
-            # If count is specified and we got more messages, limit the results
-            if count is not None and len(positions) > count:
-                positions = positions[:count]
-            
-            logger.info(f"Retrieved {len(positions)} messages from SPOT API")
-            return positions
-                
+            feed_response = data.get('response', {}).get('feedMessageResponse', {})
+            count_in_page = feed_response.get('count', 0)
+            page_positions = self._parse_response_data(data)
+            return page_positions, count_in_page
+
+        try:
+            fetched = 0
+            while True:
+                page_positions, count_in_page = fetch_page(page_start)
+                positions.extend(page_positions)
+                fetched += len(page_positions)
+                # If less than page_size positions returned, we've reached the end
+                if count_in_page < page_size:
+                    break
+
+                # Stop if we've fetched all available messages
+                if count_in_page <= page_size:
+                    break
+
+                page_start += page_size
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching messages from SPOT API: {e}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error processing SPOT API response: {e}")
             raise
+
+        return positions
     
     def _parse_response_data(self, data: dict[str, Any]) -> list[SpotPosition]:
         """

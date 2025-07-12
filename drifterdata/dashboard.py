@@ -478,9 +478,6 @@ class DrifterDashboard:
 
 def main():
     """Main function to run the dashboard."""
-    # Setup logging
-    logging.basicConfig(level=logging.INFO)
-    
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="SPOT Drifter Dashboard")
     parser.add_argument(
