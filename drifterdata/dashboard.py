@@ -5,29 +5,38 @@ This module provides a web interface for visualizing drifter position data
 collected from SPOT trackers, including interactive maps and traces over time.
 """
 
+# Reordered imports for better readability
+import argparse
 import logging
-import streamlit as st
-import pandas as pd
-import folium
-from streamlit_folium import st_folium
-from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
-import sqlite3
-from pathlib import Path
 import os
+import sqlite3
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
+import folium
+import pandas as pd
+import streamlit as st
+from streamlit_folium import st_folium
+
+from drifterdata.logging_config import setup_logging
 from drifterdata.spot_database import SpotDatabase
 from drifterdata.spot_tracker import SpotTrackerAPI
 
 
-# Configure logging
+# Setup logging for the dashboard
+setup_logging()
+
+
 logger = logging.getLogger(__name__)
 
 
+# Updated type annotations
 class DrifterDashboard:
     """Streamlit dashboard for drifter position visualization."""
     
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize the dashboard.
         
@@ -41,7 +50,7 @@ class DrifterDashboard:
         self.db = SpotDatabase(db_path) if self.data_source == "database" else None
         self.api = None
         
-    def get_api_connection(self) -> Optional[SpotTrackerAPI]:
+    def get_api_connection(self) -> SpotTrackerAPI | None:
         """
         Get or create SPOT API connection using Streamlit secrets.
         
@@ -120,9 +129,7 @@ class DrifterDashboard:
             st.error(f"Error loading data from SPOT API: {e}")
             return pd.DataFrame()
         
-    def load_position_data(self, 
-                          asset_ids: Optional[List[str]] = None,
-                          days_back: int = 7) -> pd.DataFrame:
+    def load_position_data(self, asset_ids: list[str] | None = None, days_back: int = 7) -> pd.DataFrame:
         """
         Load position data from the database.
         
@@ -252,7 +259,7 @@ class DrifterDashboard:
         
         return m
     
-    def create_sidebar(self) -> Dict[str, Any]:
+    def create_sidebar(self) -> dict[str, Any]:
         """
         Create sidebar controls.
         
@@ -475,9 +482,6 @@ def main():
     logging.basicConfig(level=logging.INFO)
     
     # Parse command line arguments
-    import sys
-    import argparse
-    
     parser = argparse.ArgumentParser(description="SPOT Drifter Dashboard")
     parser.add_argument(
         "--db-path",

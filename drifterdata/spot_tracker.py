@@ -12,10 +12,12 @@ from typing import Optional, List, Dict, Any
 
 import requests
 from pydantic import BaseModel, Field, validator
+from drifterdata.logging_config import setup_logging
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Setup logging
+setup_logging()
+
 logger = logging.getLogger(__name__)
 
 

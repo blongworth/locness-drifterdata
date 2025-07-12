@@ -12,9 +12,12 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 
 from drifterdata.spot_tracker import SpotPosition
+from drifterdata.logging_config import setup_logging
 
 
-# Configure logging
+# Setup logging
+setup_logging()
+
 logger = logging.getLogger(__name__)
 
 

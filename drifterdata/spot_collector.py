@@ -5,19 +5,22 @@ This module provides functionality to periodically fetch position data
 from SPOT trackers and store it in the database.
 """
 
-import time
+# Reordered imports and updated type annotations
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
-import schedule
 import signal
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from drifterdata.spot_tracker import SpotTrackerAPI
+import schedule
+
+from drifterdata.logging_config import setup_logging
 from drifterdata.spot_database import SpotDatabase
+from drifterdata.spot_tracker import SpotTrackerAPI
 
+# Setup logging
+setup_logging()
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 
@@ -31,8 +34,8 @@ class SpotDataCollector:
 
     def __init__(
         self,
-        feed_id: Optional[str] = None,
-        api_key: Optional[str] = None,  # Deprecated, kept for backward compatibility
+        feed_id: str | None = None,
+        api_key: str | None = None,  # Deprecated, kept for backward compatibility
         db_path: str = "spot_positions.db",
         collection_interval: int = 15,  # minutes
         cleanup_days: int = 30,
@@ -254,13 +257,6 @@ LOG_LEVEL=INFO
 
 
 if __name__ == "__main__":
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler("spot_collector.log"), logging.StreamHandler()],
-    )
-
     # Create config file if it doesn't exist
     create_config_file()
 

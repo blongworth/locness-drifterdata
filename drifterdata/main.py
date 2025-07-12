@@ -2,22 +2,16 @@
 Main entry point for the SPOT tracker data collection system.
 """
 
-import sys
-import logging
 import argparse
+import importlib.util
+import logging
+import subprocess
+import sys
 from pathlib import Path
 
+from drifterdata.logging_config import setup_logging
 from drifterdata.spot_collector import SpotDataCollector, create_config_file
 from drifterdata.spot_database import SpotDatabase
-
-
-def setup_logging(level: str = "INFO"):
-    """Setup logging configuration."""
-    logging.basicConfig(
-        level=getattr(logging, level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler("spot_tracker.log"), logging.StreamHandler()],
-    )
 
 
 def cmd_start(args):
@@ -78,9 +72,6 @@ def cmd_cleanup(args):
 
 def cmd_dashboard(args):
     """Launch the Streamlit dashboard."""
-    import subprocess
-    import sys
-    import importlib.util
     
     # Check if streamlit is available
     if importlib.util.find_spec("streamlit") is None:
@@ -230,7 +221,7 @@ Examples:
     args = parser.parse_args()
 
     # Setup logging
-    setup_logging(args.log_level)
+    setup_logging()
 
     # If no command specified, show help
     if not args.command:
