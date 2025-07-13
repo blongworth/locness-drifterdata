@@ -57,10 +57,6 @@ class DrifterDashboard:
                 
                 if feed_id and feed_id != "your_spot_feed_id_here":
                     self.api = SpotTrackerAPI(feed_id=feed_id)
-                    # Test the connection
-                    if not self.api.test_connection():
-                        st.error("Failed to connect to SPOT API with provided feed ID")
-                        self.api = None
                 else:
                     st.error("SPOT feed ID not found. Please configure .streamlit/secrets.toml")
                     self.api = None
@@ -243,13 +239,10 @@ class DrifterDashboard:
         days_back = st.sidebar.slider(
             "Days of History",
             min_value=1,
-            max_value=30,
+            max_value=7,
             value=7,
             help="Number of days of position history to display"
         )
-        
-        # Refresh button
-        refresh = st.sidebar.button("🔄 Refresh Data")
         
         # Show stats based on data source
         st.sidebar.markdown("### 📈 Statistics")
@@ -264,8 +257,7 @@ class DrifterDashboard:
         
         return {
             'selected_assets': selected_assets,
-            'days_back': days_back,
-            'refresh': refresh
+            'days_back': days_back
         }
     
     def create_data_table(self, df: pd.DataFrame):
@@ -319,11 +311,7 @@ class DrifterDashboard:
         # Load data based on selected data source
         df = pd.DataFrame()
         # Load from API
-        api = self.get_api_connection()
-        if api:
-            df = self.load_api_data()
-        else:
-            st.warning("SPOT API connection failed. Check your credentials in .streamlit/secrets.toml")
+        df = self.load_api_data()
 
         # Create sidebar controls
         controls = self.create_sidebar(df)
@@ -331,6 +319,8 @@ class DrifterDashboard:
         # Filter by selected assets
         if not df.empty:
             df = df[df['asset_id'].isin(controls['selected_assets'])]
+            
+        df = self.filter_time_range(df, controls['days_back'])
 
         # Create two columns for layout
         col1, col2 = st.columns([2, 1])
