@@ -87,9 +87,6 @@ class DrifterDashboard:
         """
         Load position data directly from SPOT API.
         
-        Args:
-            days_back: Number of days back to load data
-            
         Returns:
             DataFrame with position data
         """
@@ -98,9 +95,7 @@ class DrifterDashboard:
             return pd.DataFrame()
             
         try:
-            since_date = datetime.now() - timedelta(days=days_back)
-            end_date = datetime.now()
-            positions = api.get_messages_by_date_range(since_date, end_date)
+            positions = api.get_messages()
             
             if not positions:
                 return pd.DataFrame()
@@ -122,7 +117,9 @@ class DrifterDashboard:
             if not df.empty:
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 df = df.sort_values(['asset_id', 'timestamp'])
-            
+            # Ensure both sides of comparison are timezone-aware
+            cutoff = pd.Timestamp(datetime.now() - timedelta(days=days_back), tz=df['timestamp'].dt.tz)
+            df = df[df['timestamp'] > cutoff]
             return df
             
         except Exception as e:
@@ -280,7 +277,7 @@ class DrifterDashboard:
             api = self.get_api_connection()
             if api:
                 try:
-                    api_df = self.load_api_data(days_back=7)
+                    api_df = self.load_api_data()
                     if not api_df.empty:
                         asset_ids = sorted(api_df['asset_id'].unique().tolist())
                 except Exception:
