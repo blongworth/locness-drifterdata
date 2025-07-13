@@ -99,8 +99,6 @@ open htmlcov/index.html
 ### API Method Tests
 - **get_latest_position()**: Latest position retrieval
 - **get_messages()**: Message retrieval with pagination
-- **get_messages_by_date_range()**: Date range filtering
-- **get_latest_positions()**: Deprecated method (backward compatibility)
 - **test_connection()**: Connection testing
 
 ## Integration Test Features

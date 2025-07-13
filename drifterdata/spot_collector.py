@@ -35,7 +35,6 @@ class SpotDataCollector:
     def __init__(
         self,
         feed_id: str | None = None,
-        api_key: str | None = None,  # Deprecated, kept for backward compatibility
         db_path: str = "spot_positions.db",
         collection_interval: int = 15,  # minutes
         cleanup_days: int = 30,
@@ -45,7 +44,6 @@ class SpotDataCollector:
 
         Args:
             feed_id: SPOT feed ID
-            api_key: Deprecated - SPOT API only requires feed ID
             db_path: Path to SQLite database
             collection_interval: Interval between collections in minutes
             cleanup_days: Days to keep old positions
@@ -79,18 +77,28 @@ class SpotDataCollector:
         try:
             logger.info("Starting data collection cycle")
 
-            # Get positions since last collection (or last 24 hours if first run)
-            start_date = self.last_collection or datetime.now() - timedelta(days=1)
+            # Determine the timestamp of the last record in the database
+            last_record = self.db.get_latest_position()
+            if last_record and 'timestamp' in last_record:
+                last_timestamp = last_record['timestamp']
+                # Parse to datetime if needed
+                if isinstance(last_timestamp, str):
+                    last_timestamp = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
+            else:
+                # If no record, default to 24 hours ago
+                last_timestamp = datetime.now() - timedelta(days=1)
 
-            # Fetch positions from API
-            end_date = datetime.now()
-            positions = self.api.get_messages_by_date_range(start_date, end_date)
+            # Fetch all messages from the API
+            all_positions = self.api.get_messages()
 
-            if positions:
+            # Filter only new positions (timestamp > last_timestamp)
+            new_positions = [p for p in all_positions if p.timestamp > last_timestamp]
+
+            if new_positions:
                 # Store in database
-                inserted_count = self.db.insert_positions(positions)
+                inserted_count = self.db.insert_positions(new_positions)
                 logger.info(
-                    f"Collected {len(positions)} positions, inserted {inserted_count} new records"
+                    f"Collected {len(new_positions)} new positions, inserted {inserted_count} new records"
                 )
 
                 # Update last collection time
@@ -226,9 +234,6 @@ def create_config_file(config_path: str = ".env"):
     """
     config_content = """# SPOT Tracker Configuration
 # Get these values from your SPOT account at https://www.findmespot.com/
-
-# Your SPOT API key
-SPOT_API_KEY=your_api_key_here
 
 # Your SPOT feed ID
 SPOT_FEED_ID=your_feed_id_here

@@ -163,15 +163,6 @@ recent_messages = api.get_messages()
 # Get messages with pagination (starting from position 51)
 more_messages = api.get_messages(start=51)
 
-# Get messages within a date range (max 7 days)
-from datetime import datetime, timedelta
-start_date = datetime.now() - timedelta(days=2)
-end_date = datetime.now()
-date_range_messages = api.get_messages_by_date_range(start_date, end_date)
-
-# For password-protected feeds
-protected_messages = api.get_messages(feed_password="your_password")
-
 # Initialize database
 db = SpotDatabase("positions.db")
 
@@ -221,15 +212,11 @@ Main class for interacting with the SPOT API.
 #### Methods:
 - `get_latest_position(feed_password=None)`: Get the latest position for each device
 - `get_messages(start=None, count=None, feed_password=None)`: Get messages with pagination
-- `get_messages_by_date_range(start_date, end_date, feed_password=None)`: Get messages within date range (max 7 days)
-- `get_latest_positions(start_date=None)`: **DEPRECATED** - Use the new methods above
 - `test_connection()`: Test API connectivity
 
 #### Parameters:
 - `start`: Starting position for pagination (1-based, 50 messages per page)
 - `count`: Number of messages to retrieve (for limiting results)
-- `feed_password`: Optional password for protected feeds
-- `start_date`/`end_date`: Date range for filtering (datetime objects)
 
 ### SpotDatabase
 
