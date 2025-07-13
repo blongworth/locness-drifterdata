@@ -172,7 +172,7 @@ class DrifterDashboard:
     
     def create_map(self, df: pd.DataFrame) -> folium.Map:
         """
-        Create a Folium map with drifter traces.
+        Create a Folium map with drifter traces, ESRI bathymetry tiles, and gridlines.
         
         Args:
             df: DataFrame with position data
@@ -183,14 +183,20 @@ class DrifterDashboard:
         if df.empty:
             # Default map centered on the ocean
             m = folium.Map(location=[0, 0], zoom_start=2)
-            return m
+        else:
+            # Calculate map center based on data
+            center_lat = df['latitude'].mean()
+            center_lon = df['longitude'].mean()
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
         
-        # Calculate map center based on data
-        center_lat = df['latitude'].mean()
-        center_lon = df['longitude'].mean()
-        
-        # Create map
-        m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
+        # Add ESRI bathymetry tile layer
+        folium.TileLayer(
+            tiles="https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
+            attr="ESRI Ocean Basemap",
+            name="ESRI Bathymetry",
+            overlay=False,
+            control=True
+        ).add_to(m)
         
         # Define colors for different drifters
         colors = ['red', 'blue', 'green', 'purple', 'orange', 'darkred', 
@@ -238,22 +244,26 @@ class DrifterDashboard:
                     tooltip=f"{asset_id} - Latest"
                 ).add_to(m)
                 
-                # Add intermediate points as circle markers
+                # Add intermediate points as circle markers with hover tooltip
                 for _, row in group.iterrows():
+                    # Format timestamp without timezone info
+                    ts_str = pd.to_datetime(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
                     folium.CircleMarker(
                         [row['latitude'], row['longitude']],
                         radius=3,
-                        popup=f"Drifter: {asset_id}<br>"
-                              f"Time: {row['timestamp']}<br>"
-                              f"Lat: {row['latitude']:.6f}<br>"
-                              f"Lon: {row['longitude']:.6f}<br>"
-                              f"Battery: {row['battery_state'] or 'Unknown'}",
                         color=color,
                         fillColor=color,
                         fillOpacity=0.6,
-                        weight=1
+                        weight=1,
+                        tooltip=folium.Tooltip(
+                            f"Drifter: {asset_id}<br>"
+                            f"Time: {ts_str}<br>"
+                            f"Lat: {row['latitude']:.6f}<br>"
+                            f"Lon: {row['longitude']:.6f}"
+                        )
                     ).add_to(m)
         
+        folium.LayerControl().add_to(m)
         return m
     
     def create_sidebar(self) -> dict[str, Any]:
