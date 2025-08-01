@@ -31,6 +31,7 @@ class SpotPosition(BaseModel):
     message_type: Optional[str] = Field(None, description="Message type")
     battery_state: Optional[str] = Field(None, description="Battery status")
     
+
     @validator('timestamp', pre=True)
     def parse_timestamp(cls, v):
         """Parse timestamp from various formats."""
@@ -57,6 +58,18 @@ class SpotPosition(BaseModel):
                     raise ValueError(f"Could not parse timestamp: {v}")
         elif isinstance(v, (int, float)):
             return datetime.fromtimestamp(v, tz=timezone.utc)
+        return v
+
+    @validator('latitude')
+    def validate_latitude(cls, v):
+        if not (-90 <= v <= 90):
+            raise ValueError(f"Latitude {v} out of bounds (-90 to 90)")
+        return v
+
+    @validator('longitude')
+    def validate_longitude(cls, v):
+        if not (-180 <= v <= 180):
+            raise ValueError(f"Longitude {v} out of bounds (-180 to 180)")
         return v
 
 
