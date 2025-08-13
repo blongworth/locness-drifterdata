@@ -240,7 +240,7 @@ class DrifterDashboard:
             "Days of History",
             min_value=1,
             max_value=7,
-            value=7,
+            value=2,
             help="Number of days of position history to display"
         )
         
