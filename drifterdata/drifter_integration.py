@@ -214,7 +214,7 @@ class DrifterDataIntegrator:
         })
         
         # Mark actual GPS points as not interpolated
-        for gps_time in self.gpx_data['time']:
+        for gps_time in self.gpx_data['timestamp']:
             mask = np.abs((result['datetime'] - gps_time).dt.total_seconds()) < 30  # Within 30 seconds
             result.loc[mask, 'interpolated'] = False
         

@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# data
+data/
+
 # Exclude environment files
 .env
 
